@@ -115,13 +115,10 @@ pub fn forwardFromEuler(rotation: anytype) @TypeOf(rotation) {
     const len, _ = info(@TypeOf(rotation));
     if (len != 3) @compileError("forwardFromEuler() only supports vec3");
 
-    const pitch = std.math.degreesToRadians(rotation[0]); // rotation around X
-    const yaw = std.math.degreesToRadians(rotation[1]); // rotation around Y
-
     return .{
-        std.math.sin(yaw) * std.math.cos(pitch), // X
-        -std.math.sin(pitch), // Y
-        -std.math.cos(yaw) * std.math.cos(pitch), // Z
+        std.math.sin(rotation[1]) * std.math.cos(rotation[0]), // X
+        std.math.sin(rotation[0]), // Y
+        -std.math.cos(rotation[1]) * std.math.cos(rotation[0]), // Z
     };
 }
 
