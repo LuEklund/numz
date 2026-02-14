@@ -40,6 +40,9 @@ pub fn Transform3D(T: type) type {
                 .scale = m.vecScale(),
             };
         }
+        pub fn forward(self: @This()) @TypeOf(self.rotation) {
+            return vec.forwardFromEuler(self.rotation);
+        }
     };
 }
 
