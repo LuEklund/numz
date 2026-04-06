@@ -1,7 +1,7 @@
 const std = @import("std");
 const vec = @import("vector.zig");
 const Mat4x4 = @import("matrix.zig").@"4x4";
-const Quaternion = @import("quaternion.zig").Hamiltonian;
+const Quat = @import("quaternion.zig").Hamiltonian;
 
 pub fn Rotor(T: type) type {
     return struct {
@@ -27,12 +27,12 @@ pub fn Rotor(T: type) type {
         }
 
         pub fn reverse(r: @This()) @This() {
-            var result: @This() = undefined;
-            result.scalar = r.scalar;
-            result.xy = -r.xy;
-            result.yz = -r.yz;
-            result.zx = -r.zx;
-            return result;
+            return .{
+                .scalar = r.scalar,
+                .xy = -r.xy,
+                .yz = -r.yz,
+                .zx = -r.zx,
+            };
         }
 
         pub fn transform(r: @This(), v: @Vector(3, T)) @Vector(3, T) {
@@ -41,11 +41,11 @@ pub fn Rotor(T: type) type {
             const S_z: f32 = r.scalar * v[2] - r.yz * v[1] + r.zx * v[1];
             const S_xyz = r.xy * v[2] + r.zy * v[0] + r.zx * v[1];
 
-            var result: @Vector(3, T) = undefined;
-            result[0] = S_x * r.scalar + S_y * r.xy + S_xyz * r.yz - S_z * r.zx;
-            result[1] = S_y * r.scalar - S_x * r.xy + S_z * r.yz + S_xyz * r.zx;
-            result[2] = S_z * r.scalar + S_xyz * r.xy - S_y * r.yz + S_x * r.zx;
-            return result;
+            return .{
+                S_x * r.scalar + S_y * r.xy + S_xyz * r.yz - S_z * r.zx,
+                S_y * r.scalar - S_x * r.xy + S_z * r.yz + S_xyz * r.zx,
+                S_z * r.scalar + S_xyz * r.xy - S_y * r.yz + S_x * r.zx,
+            };
         }
 
         pub fn rotate(r: @This()) Mat4x4(T) {
@@ -53,21 +53,16 @@ pub fn Rotor(T: type) type {
             const new_y: @Vector(3, T) = transform(r, @Vector(3, f32){ 0.0, 1.0, 0.0 });
             const new_z: @Vector(3, T) = transform(r, @Vector(3, f32){ 0.0, 0.0, 1.0 });
 
-            const result: Mat4x4(T) = .new(.{ new_x[0], new_x[1], new_x[2], 0.0, new_y[0], new_y[1], new_y[2], 0.0, new_z[0], new_z[1], new_z[2], 0.0, 0.0, 0.0, 0.0, 0.0 });
-            return result;
+            return .new(.{ new_x[0], new_x[1], new_x[2], 0.0, new_y[0], new_y[1], new_y[2], 0.0, new_z[0], new_z[1], new_z[2], 0.0, 0.0, 0.0, 0.0, 0.0 });
         }
 
-        pub fn quaternion_to_rotor3(q: Quaternion(T)) @This() {
-            var result: @This() = undefined;
-            result.scalar = q.w;
-            result.xy = -q.z;
-            result.yz = -q.x;
-            result.zx = -q.y;
-            return result;
-        }
-
-        fn lerp(a: f32, b: f32, t: f32) f32 {
-            return a + t * (b - a);
+        pub fn fromQuaternion(q: Quat(T)) @This() {
+            return .{
+                .scalar = q.w,
+                .xy = -q.z,
+                .yz = -q.x,
+                .zx = -q.y,
+            };
         }
 
         pub fn nlerp(lhs: @This(), rhs: @This(), t: f32) @This() {
@@ -79,17 +74,20 @@ pub fn Rotor(T: type) type {
                 rhs.zx = -rhs.zx;
             }
 
-            var r: @This() = undefined;
-            r.scalar = lerp(lhs.scalar, rhs.scalar, t);
-            r.xy = lerp(lhs.xy, rhs.xy, t);
-            r.yz = lerp(lhs.yz, rhs.yz, t);
-            r.zx = lerp(lhs.zx, rhs.zx, t);
+            var r: @This() = .{
+                .scalar = std.math.lerp(lhs.scalar, rhs.scalar, t),
+                .xy = std.math.lerp(lhs.xy, rhs.xy, t),
+                .yz = std.math.lerp(lhs.yz, rhs.yz, t),
+                .zx = std.math.lerp(lhs.zx, rhs.zx, t),
+            };
 
             const magnitude: f32 = std.math.sqrt(r.scalar * r.scalar + r.xy * r.xy + r.yz * r.yz + r.zx * r.zx);
-            r.scalar = r.scalar / magnitude;
-            r.xy = r.xy / magnitude;
-            r.yz = r.yz / magnitude;
-            r.zx = r.zx / magnitude;
+            r = .{
+                .scalar = r.scalar / magnitude,
+                .xy = r.xy / magnitude,
+                .yz = r.yz / magnitude,
+                .zx = r.zx / magnitude,
+            };
             return r;
         }
 
@@ -112,15 +110,15 @@ pub fn Rotor(T: type) type {
             const from_factor: f32 = std.math.sin((1.0 - t) * theta / std.math.sin(theta));
             const to_factor: f32 = std.math.sin((t * theta) / std.math.sin(theta));
 
-            var result: @This() = undefined;
-            result.scalar = from_factor * from.scalar + to_factor * to.scalar;
-            result.xy = from_factor * from.xy + to_factor * to.xy;
-            result.yz = from_factor * from.yz + to_factor * to.yz;
-            result.zx = from_factor * from.zx + to_factor * to.zx;
-            return result;
+            return .{
+                .scalar = from_factor * from.scalar + to_factor * to.scalar,
+                .xy = from_factor * from.xy + to_factor * to.xy,
+                .yz = from_factor * from.yz + to_factor * to.yz,
+                .zx = from_factor * from.zx + to_factor * to.zx,
+            };
         }
 
-        pub fn from_vec_to_rotor(from_dir: @Vector(3, T), to_dir: @Vector(3, T)) @This() {
+        pub fn fromVec(from_dir: @Vector(3, T), to_dir: @Vector(3, T)) @This() {
             // This function might be completely incorrect I may need to re review
             from_dir = vec.normalize(from_dir);
             to_dir = vec.normalize(to_dir);
@@ -133,13 +131,12 @@ pub fn Rotor(T: type) type {
                 (halfway[2] * from_dir[0]) - (halfway[0] * from_dir[2]),
             };
 
-            var result: @This() = undefined;
-
-            result.scalar = vec.dot(from_dir, halfway);
-            result.xy = wedge.x;
-            result.yz = wedge.y;
-            result.zx = wedge.z;
-            return result;
+            return .{
+                .scalar = vec.dot(from_dir, halfway),
+                .xy = wedge.x,
+                .yz = wedge.y,
+                .zx = wedge.z,
+            };
         }
     };
 }

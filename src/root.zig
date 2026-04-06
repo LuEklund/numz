@@ -17,6 +17,8 @@ pub fn Vec4(T: type) type {
 
 /// Column mayor
 pub const Mat4x4 = mat.@"4x4";
+pub const Quat = quat.Hamiltonian;
+pub const Rotor = @import("rotors.zig");
 
 pub fn Transform3D(T: type) type {
     return struct {
