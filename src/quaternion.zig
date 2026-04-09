@@ -24,7 +24,7 @@ pub fn Hamiltonian(T: type) type {
                 .w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
             };
         }
-        fn normalize(q: @This()) @This() {
+        pub fn normalize(q: @This()) @This() {
             const magnitude = @sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
             if (magnitude == 0.0) return .{ .w = 1, .x = 0, .y = 0, .z = 0 };
 
