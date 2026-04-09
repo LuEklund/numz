@@ -2,13 +2,13 @@ const std = @import("std");
 const vec = @import("vector.zig");
 const Mat4x4 = @import("matrix.zig").@"4x4";
 
-/// Quaternion using Hamiltonian (w-first) convention
+/// Quaternion using Jolt (x,y,z,w) convention
 pub fn Hamiltonian(T: type) type {
     return struct {
-        w: T,
         x: T,
         y: T,
         z: T,
+        w: T,
 
         pub const identity: @This() = .{ .x = 0, .y = 0, .z = 0, .w = 1 };
 
@@ -26,22 +26,24 @@ pub fn Hamiltonian(T: type) type {
         }
 
         pub fn conjugate(q: @This()) @This() {
-            return .{ .w = q.w, .x = -q.x, .y = -q.y, .z = -q.z };
+            return .{ .x = -q.x, .y = -q.y, .z = -q.z, .w = q.w };
+        }
+
+        pub fn rotateVec(self: @This(), v: @Vector(3, T)) @Vector(3, T) {
+            const qv = @Vector(3, T){ self.x, self.y, self.z };
+            const uv = vec.cross(qv, v);
+            const uuv = vec.cross(qv, uv);
+            return v + (uv * @as(@Vector(3, T), @splat(self.w)) + uuv) * @as(@Vector(3, T), @splat(2));
         }
 
         pub fn fromVec(v: @Vector(4, T)) @This() {
-            return .{ .w = v[0], .x = v[1], .y = v[2], .z = v[3] };
+            return .{ .x = v[0], .y = v[1], .z = v[2], .w = v[3] };
         }
 
         pub fn toVec(self: @This()) @Vector(4, T) {
-            return .{ self.w, self.x, self.y, self.z };
-        }
-        pub fn fromVecReversed(v: @Vector(4, T)) @This() {
-            return .{ .w = v[0], .x = v[1], .y = v[2], .z = v[3] };
-        }
-        pub fn toVecReversed(self: @This()) @Vector(4, T) {
             return .{ self.x, self.y, self.z, self.w };
         }
+
         pub fn fromEuler(euler: @Vector(3, T)) @This() {
             const pitch, const yaw, const roll = euler;
 
