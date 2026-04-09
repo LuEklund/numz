@@ -12,8 +12,8 @@ pub fn Hamiltonian(T: type) type {
 
         pub const identity: @This() = .{ .x = 0, .y = 0, .z = 0, .w = 1 };
 
-        pub fn new(w: T, x: T, y: T, z: T) @This() {
-            return .{ .w = w, .x = x, .y = y, .z = z };
+        pub fn new(x: T, y: T, z: T, w: T) @This() {
+            return .{ .x = x, .y = y, .z = z, .w = w };
         }
 
         pub fn mul(a: @This(), b: @This()) @This() {
@@ -38,6 +38,52 @@ pub fn Hamiltonian(T: type) type {
         }
         pub fn conjugate(q: @This()) @This() {
             return .{ .x = -q.x, .y = -q.y, .z = -q.z, .w = q.w };
+        }
+
+        pub fn inverse(q: @This()) @This() {
+            const mag_sq = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+            const inv = 1.0 / mag_sq;
+            return .{ .x = -q.x * inv, .y = -q.y * inv, .z = -q.z * inv, .w = q.w * inv };
+        }
+
+        pub fn dot(a: @This(), b: @This()) T {
+            return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+        }
+
+        pub fn slerp(a: @This(), b_in: @This(), t: T) @This() {
+            var d = dot(a, b_in);
+            var b = b_in;
+            if (d < 0.0) {
+                b = .{ .x = -b.x, .y = -b.y, .z = -b.z, .w = -b.w };
+                d = -d;
+            }
+            if (d > 0.9995) {
+                return nlerp(a, b, t);
+            }
+            const theta = std.math.acos(d);
+            const sin_theta = @sin(theta);
+            const wa = @sin((1.0 - t) * theta) / sin_theta;
+            const wb = @sin(t * theta) / sin_theta;
+            return .{
+                .x = a.x * wa + b.x * wb,
+                .y = a.y * wa + b.y * wb,
+                .z = a.z * wa + b.z * wb,
+                .w = a.w * wa + b.w * wb,
+            };
+        }
+
+        pub fn nlerp(a: @This(), b_in: @This(), t: T) @This() {
+            var b = b_in;
+            if (dot(a, b) < 0.0) {
+                b = .{ .x = -b.x, .y = -b.y, .z = -b.z, .w = -b.w };
+            }
+            const one_minus_t = 1.0 - t;
+            return (@This(){
+                .x = a.x * one_minus_t + b.x * t,
+                .y = a.y * one_minus_t + b.y * t,
+                .z = a.z * one_minus_t + b.z * t,
+                .w = a.w * one_minus_t + b.w * t,
+            }).normalize();
         }
 
         pub fn rotateVec(self: @This(), v: @Vector(3, T)) @Vector(3, T) {
@@ -108,42 +154,47 @@ pub fn Hamiltonian(T: type) type {
             };
         }
 
+        /// Extracts a quaternion from a column-major 4x4 rotation matrix.
+        /// Column-major: R[row, col] = d[row + col * 4]
         pub fn fromMat4x4(m: Mat4x4(T)) @This() {
-            const trace = m.d[0 * 4 + 0] + m.d[1 * 4 + 1] + m.d[2 * 4 + 2];
+            // R[0,0] = d[0], R[1,1] = d[5], R[2,2] = d[10]
+            const trace = m.d[0] + m.d[5] + m.d[10];
             var w: T = 0;
             var x: T = 0;
             var y: T = 0;
             var z: T = 0;
 
             if (trace > @as(T, 0)) {
-                const s = @sqrt(trace + @as(T, 1.0)) * @as(T, 2.0); // s = 4 * w
+                const s = @sqrt(trace + @as(T, 1.0)) * @as(T, 2.0);
                 w = 0.25 * s;
-                x = (m.d[2 * 4 + 1] - m.d[1 * 4 + 2]) / s;
-                y = (m.d[0 * 4 + 2] - m.d[2 * 4 + 0]) / s;
-                z = (m.d[1 * 4 + 0] - m.d[0 * 4 + 1]) / s;
-            } else if ((m.d[0 * 4 + 0] > m.d[1 * 4 + 1]) and (m.d[0 * 4 + 0] > m.d[2 * 4 + 2])) {
-                const s = @sqrt(@as(T, 1.0) + m.d[0 * 4 + 0] - m.d[1 * 4 + 1] - m.d[2 * 4 + 2]) * @as(T, 2.0); // s = 4 * x
-                w = (m.d[2 * 4 + 1] - m.d[1 * 4 + 2]) / s;
+                x = (m.d[6] - m.d[9]) / s; // R[2,1] - R[1,2]
+                y = (m.d[8] - m.d[2]) / s; // R[0,2] - R[2,0]
+                z = (m.d[1] - m.d[4]) / s; // R[1,0] - R[0,1]
+            } else if ((m.d[0] > m.d[5]) and (m.d[0] > m.d[10])) {
+                const s = @sqrt(@as(T, 1.0) + m.d[0] - m.d[5] - m.d[10]) * @as(T, 2.0);
+                w = (m.d[6] - m.d[9]) / s;
                 x = 0.25 * s;
-                y = (m.d[0 * 4 + 1] + m.d[1 * 4 + 0]) / s;
-                z = (m.d[0 * 4 + 2] + m.d[2 * 4 + 0]) / s;
-            } else if (m.d[1 * 4 + 1] > m.d[2 * 4 + 2]) {
-                const s = @sqrt(@as(T, 1.0) + m.d[1 * 4 + 1] - m.d[0 * 4 + 0] - m.d[2 * 4 + 2]) * @as(T, 2.0); // s = 4 * y
-                w = (m.d[0 * 4 + 2] - m.d[2 * 4 + 0]) / s;
-                x = (m.d[0 * 4 + 1] + m.d[1 * 4 + 0]) / s;
+                y = (m.d[4] + m.d[1]) / s; // R[0,1] + R[1,0]
+                z = (m.d[8] + m.d[2]) / s; // R[0,2] + R[2,0]
+            } else if (m.d[5] > m.d[10]) {
+                const s = @sqrt(@as(T, 1.0) + m.d[5] - m.d[0] - m.d[10]) * @as(T, 2.0);
+                w = (m.d[8] - m.d[2]) / s;
+                x = (m.d[4] + m.d[1]) / s;
                 y = 0.25 * s;
-                z = (m.d[1 * 4 + 2] + m.d[2 * 4 + 1]) / s;
+                z = (m.d[9] + m.d[6]) / s; // R[1,2] + R[2,1]
             } else {
-                const s = @sqrt(@as(T, 1.0) + m.d[2 * 4 + 2] - m.d[0 * 4 + 0] - m.d[1 * 4 + 1]) * @as(T, 2.0); // s = 4 * z
-                w = (m.d[1 * 4 + 0] - m.d[0 * 4 + 1]) / s;
-                x = (m.d[0 * 4 + 2] + m.d[2 * 4 + 0]) / s;
-                y = (m.d[1 * 4 + 2] + m.d[2 * 4 + 1]) / s;
+                const s = @sqrt(@as(T, 1.0) + m.d[10] - m.d[0] - m.d[5]) * @as(T, 2.0);
+                w = (m.d[1] - m.d[4]) / s;
+                x = (m.d[8] + m.d[2]) / s;
+                y = (m.d[9] + m.d[6]) / s;
                 z = 0.25 * s;
             }
 
-            return .{ .w = w, .x = x, .y = y, .z = z };
+            return .{ .x = x, .y = y, .z = z, .w = w };
         }
 
+        /// Converts quaternion to a column-major 4x4 rotation matrix.
+        /// Each group of 4 values is one column.
         pub fn toMat4x4(self: @This()) Mat4x4(T) {
             const xx = self.x * self.x;
             const yy = self.y * self.y;
@@ -156,9 +207,9 @@ pub fn Hamiltonian(T: type) type {
             const wz = self.w * self.z;
 
             return .new(.{
-                1 - 2 * (yy + zz), 2 * (xy - wz),     2 * (xz + wy),     0,
-                2 * (xy + wz),     1 - 2 * (xx + zz), 2 * (yz - wx),     0,
-                2 * (xz - wy),     2 * (yz + wx),     1 - 2 * (xx + yy), 0,
+                1 - 2 * (yy + zz), 2 * (xy + wz),     2 * (xz - wy),     0,
+                2 * (xy - wz),     1 - 2 * (xx + zz), 2 * (yz + wx),     0,
+                2 * (xz + wy),     2 * (yz - wx),     1 - 2 * (xx + yy), 0,
                 0,                 0,                 0,                 1,
             });
         }
