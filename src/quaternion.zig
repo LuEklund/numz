@@ -24,7 +24,18 @@ pub fn Hamiltonian(T: type) type {
                 .w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
             };
         }
+        fn normalize(q: @This()) @This() {
+            const magnitude = @sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
+            if (magnitude == 0.0) return .{ .w = 1, .x = 0, .y = 0, .z = 0 };
 
+            const inv_mag = 1.0 / magnitude;
+            return .{
+                .w = q.w * inv_mag,
+                .x = q.x * inv_mag,
+                .y = q.y * inv_mag,
+                .z = q.z * inv_mag,
+            };
+        }
         pub fn conjugate(q: @This()) @This() {
             return .{ .x = -q.x, .y = -q.y, .z = -q.z, .w = q.w };
         }
