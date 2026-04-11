@@ -40,9 +40,20 @@ pub fn Transform3D(T: type) type {
                 .scale = m.vecScale(),
             };
         }
+
         pub fn forward(self: @This()) Vec3(T) {
-            const f: Vec3(T) = .{ 0, 0, 1 };
-            return self.rotation.rotateVec(f);
+            const f: Vec3(T) = .{ 0, 0, -1 };
+            return vec.normalize(self.rotation.rotateVec(f));
+        }
+
+        pub fn right(self: *@This()) Vec3(T) {
+            const r: Vec3(f32) = .{ 1, 0, 0 };
+            return vec.normalize(self.rotation.rotateVec(r));
+        }
+
+        pub fn up2(self: *@This()) Vec3(T) {
+            const u: Vec3(f32) = .{ 0, 1, 0 };
+            return vec.normalize(self.rotation.rotateVec(u));
         }
     };
 }
