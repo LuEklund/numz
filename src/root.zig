@@ -51,7 +51,7 @@ pub fn Transform3D(T: type) type {
             return vec.normalize(self.rotation.rotateVec(r));
         }
 
-        pub fn up2(self: *@This()) Vec3(T) {
+        pub fn up(self: *@This()) Vec3(T) {
             const u: Vec3(f32) = .{ 0, 1, 0 };
             return vec.normalize(self.rotation.rotateVec(u));
         }

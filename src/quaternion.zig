@@ -154,6 +154,58 @@ pub fn Hamiltonian(T: type) type {
             };
         }
 
+        /// Shortest-arc rotation that maps `from_in` onto `to_in`.
+        pub fn fromTo(from_in: @Vector(3, T), to_in: @Vector(3, T)) @This() {
+            const from = vec.normalize(from_in);
+            const to = vec.normalize(to_in);
+            const d = vec.dot(from, to);
+
+            if (d >= 0.999999) return identity;
+            if (d <= -0.999999) {
+                var axis = vec.cross(from, @Vector(3, T){ 1, 0, 0 });
+                if (vec.length(axis) < 1.0e-6) {
+                    axis = vec.cross(from, @Vector(3, T){ 0, 1, 0 });
+                }
+                return angleAxis(std.math.pi, axis);
+            }
+
+            const axis = vec.cross(from, to);
+            const s = @sqrt((d) * 2.0);
+            const inv_s = 1.0 / s;
+            return .{
+                .w = s * 0.5,
+                .x = axis[0] * inv_s,
+                .y = axis[1] * inv_s,
+                .z = axis[2] * inv_s,
+            };
+        }
+
+        /// Orients local forward `(0, 0, -1)` toward `forward_in`, keeping local up
+        /// `(0, 1, 0)` aligned as closely as possible with `up_hint`.
+        pub fn lookAt(forward_in: @Vector(3, T), up_hint: @Vector(3, T)) @This() {
+            const f = vec.normalize(forward_in);
+
+            const proj = vec.dot(up_hint, f);
+            var u_raw = up_hint - f * @as(@Vector(3, T), @splat(proj));
+            if (vec.length(u_raw) < 1.0e-6) {
+                u_raw = if (@abs(f[0]) < 0.9)
+                    vec.cross(f, @Vector(3, T){ 1, 0, 0 })
+                else
+                    vec.cross(f, @Vector(3, T){ 0, 1, 0 });
+            }
+            const u = vec.normalize(u_raw);
+            const r = vec.cross(u, -f);
+            const back = -f;
+
+            const m: Mat4x4(T) = .new(.{
+                r[0],    r[1],    r[2],    0,
+                u[0],    u[1],    u[2],    0,
+                back[0], back[1], back[2], 0,
+                0,       0,       0,       1,
+            });
+            return fromMat4x4(m);
+        }
+
         /// Extracts a quaternion from a column-major 4x4 rotation matrix.
         /// Column-major: R[row, col] = d[row + col * 4]
         pub fn fromMat4x4(m: Mat4x4(T)) @This() {
