@@ -16,6 +16,10 @@ pub fn Hamiltonian(T: type) type {
             return .{ .w = w, .x = x, .y = y, .z = z };
         }
 
+        pub fn swapXW(q: @This()) @This() {
+            return .{ q.w, q.y, q.z, q.x };
+        }
+
         pub fn mul(a: @This(), b: @This()) @This() {
             return .{
                 .x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
